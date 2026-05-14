@@ -1,24 +1,22 @@
 package com.nammahaadi.app.data.repository
 
 import com.nammahaadi.app.data.model.PathModel
+import com.nammahaadi.app.data.model.PathStatus
 import com.nammahaadi.app.data.remote.FirebaseService
 import kotlinx.coroutines.flow.Flow
-
-// Repository is the middleman between ViewModel and FirebaseService.
-// Business logic (coordinate mapping, status checks) lives here.
 
 class FirebaseRepository(
     private val service: FirebaseService = FirebaseService()
 ) {
 
-    // ── PATHS ──────────────────────────────────────────
-
     fun getAllPaths(): Flow<List<PathModel>> = service.observePaths()
 
+    // ✅ Now takes displayName so leaderboard shows real name
     suspend fun savePath(
-        name: String,
-        coordinates: List<Map<String, Double>>,
-        userId: String,
+        name        : String,
+        coordinates : List<Map<String, Double>>,
+        userId      : String,
+        displayName : String,           // ← real name e.g. "Raju"
         safeAfterDark: Boolean = true
     ): Result<String> {
         return try {
@@ -31,7 +29,7 @@ class FirebaseRepository(
                 "safeAfterDark" to safeAfterDark
             )
             val id = service.addPath(data)
-            service.incrementScore(userId, "pathsAdded")
+            service.incrementScore(userId, displayName, "pathsAdded")
             Result.success(id)
         } catch (e: Exception) {
             Result.failure(e)
@@ -39,9 +37,10 @@ class FirebaseRepository(
     }
 
     suspend fun updatePathStatus(
-        pathId: String,
-        newStatus: String,   // "DRY", "MUDDY", "FLOODED"
-        userId: String
+        pathId      : String,
+        newStatus   : String,
+        userId      : String,
+        displayName : String    // ← real name
     ): Result<Unit> {
         return try {
             service.updatePath(
@@ -52,23 +51,12 @@ class FirebaseRepository(
                     "lastUpdated" to System.currentTimeMillis()
                 )
             )
-            service.incrementScore(userId, "reportsCount")
+            service.incrementScore(userId, displayName, "reportsCount")
             Result.success(Unit)
         } catch (e: Exception) {
             Result.failure(e)
         }
     }
-
-    suspend fun deletePath(pathId: String): Result<Unit> {
-        return try {
-            service.deletePath(pathId)
-            Result.success(Unit)
-        } catch (e: Exception) {
-            Result.failure(e)
-        }
-    }
-
-    // ── LEADERBOARD ────────────────────────────────────
 
     fun getLeaderboard(): Flow<List<Map<String, Any>>> = service.observeLeaderboard()
 }
